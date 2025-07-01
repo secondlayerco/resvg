@@ -9,6 +9,7 @@ pub use svgtypes::FontFamily;
 #[cfg(feature = "text")]
 use crate::layout::Span;
 use crate::{Fill, Group, NonEmptyString, PaintOrder, Rect, Stroke, TextRendering, Transform};
+use fontdb::ID;
 
 /// A font stretch property.
 #[allow(missing_docs)]
@@ -278,6 +279,7 @@ pub struct TextSpan {
     pub(crate) stroke: Option<Stroke>,
     pub(crate) paint_order: PaintOrder,
     pub(crate) font: Font,
+    pub(crate) font_id: ID,
     pub(crate) font_size: NonZeroPositiveF32,
     pub(crate) small_caps: bool,
     pub(crate) apply_kerning: bool,

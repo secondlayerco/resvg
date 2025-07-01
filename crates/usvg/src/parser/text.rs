@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use fontdb::{Database, ID};
 use kurbo::{ParamCurve, ParamCurveArclen};
 use svgtypes::{parse_font_families, FontFamily, Length, LengthUnit};
 
@@ -171,7 +172,31 @@ fn collect_text_chunks(
 
     collect_text_chunks_impl(text_node, pos_list, state, cache, &mut iter_state);
 
+    split_chunk_spans(
+        &mut iter_state.chunks,
+        &state.opt.font_resolver,
+        &mut cache.fontdb,
+    );
+
     iter_state.chunks
+}
+
+fn split_chunk_spans(
+    chunks: &mut Vec<TextChunk>,
+    font_resolver: &FontResolver,
+    fontdb: &mut Arc<Database>,
+) {
+    for chunk in chunks {
+        let sub_spans = (font_resolver.create_text_sub_spans)(&chunk.text, &chunk.spans, fontdb);
+        chunk.spans = sub_spans
+            .iter()
+            .map(|s| {
+                let mut new_span = s.span.clone();
+                new_span.font_id = s.font_id;
+                new_span
+            })
+            .collect();
+    }
 }
 
 fn collect_text_chunks_impl(
@@ -281,6 +306,7 @@ fn collect_text_chunks_impl(
             stroke: style::resolve_stroke(parent, true, state, cache),
             paint_order,
             font,
+            font_id: ID::default(),
             font_size,
             small_caps: parent.find_attribute::<&str>(AId::FontVariant) == Some("small-caps"),
             apply_kerning,

@@ -15,7 +15,7 @@ use unicode_script::UnicodeScript;
 
 use crate::tree::{BBox, IsValidLength};
 use crate::{
-    AlignmentBaseline, ApproxZeroUlps, BaselineShift, DominantBaseline, Fill, FillRule, Font,
+    AlignmentBaseline, ApproxZeroUlps, BaselineShift, DominantBaseline, Fill, FillRule,
     FontResolver, LengthAdjust, PaintOrder, Path, ShapeRendering, Stroke, Text, TextAnchor,
     TextChunk, TextDecorationStyle, TextFlow, TextPath, TextSpan, WritingMode,
 };
@@ -194,18 +194,6 @@ pub(crate) fn layout_text(
 ) -> Option<(Vec<Span>, NonZeroRect)> {
     let mut fonts_cache: FontsCache = HashMap::new();
 
-    for chunk in &text_node.chunks {
-        for span in &chunk.spans {
-            if !fonts_cache.contains_key(&span.font) {
-                if let Some(font) =
-                    (resolver.select_font)(&span.font, fontdb).and_then(|id| fontdb.load_font(id))
-                {
-                    fonts_cache.insert(span.font.clone(), Arc::new(font));
-                }
-            }
-        }
-    }
-
     let mut spans = vec![];
     let mut char_offset = 0;
     let mut last_x = 0.0;
@@ -217,7 +205,7 @@ pub(crate) fn layout_text(
             TextFlow::Path(_) => (0.0, 0.0),
         };
 
-        let mut clusters = process_chunk(chunk, &fonts_cache, resolver, fontdb);
+        let mut clusters = process_chunk(chunk, &mut fonts_cache, resolver, fontdb);
         if clusters.is_empty() {
             char_offset += chunk.text.chars().count();
             continue;
@@ -245,7 +233,7 @@ pub(crate) fn layout_text(
         }
 
         for span in &chunk.spans {
-            let font = match fonts_cache.get(&span.font) {
+            let font = match fonts_cache.get(&span.font_id) {
                 Some(v) => v,
                 None => continue,
             };
@@ -663,7 +651,7 @@ fn resolve_clusters_positions_path(
 
         let baseline_shift = chunk_span_at(chunk, cluster.byte_idx)
             .map(|span| {
-                let font = match fonts_cache.get(&span.font) {
+                let font = match fonts_cache.get(&span.font_id) {
                     Some(v) => v,
                     None => return 0.0,
                 };
@@ -847,7 +835,7 @@ fn collect_normals(
 /// but not the text layouting. So all clusters are in the 0x0 position.
 fn process_chunk(
     chunk: &TextChunk,
-    fonts_cache: &FontsCache,
+    fonts_cache: &mut FontsCache,
     resolver: &FontResolver,
     fontdb: &mut Arc<fontdb::Database>,
 ) -> Vec<GlyphCluster> {
@@ -885,10 +873,13 @@ fn process_chunk(
     let font_spans = (resolver.create_text_sub_spans)(&chunk.text, &chunk.spans, fontdb);
 
     // Populate font cache
-    let mut font_mapping = HashMap::<ID, Arc<ResolvedFont>>::new();
+    // let mut font_mapping = HashMap::<ID, Arc<ResolvedFont>>::new();
     for font_span in &font_spans {
+        if fonts_cache.contains_key(&font_span.font_id) {
+            continue;
+        }
         if let Some(font) = fontdb.load_font(font_span.font_id) {
-            font_mapping.insert(font_span.font_id, Arc::new(font));
+            fonts_cache.insert(font_span.font_id, Arc::new(font));
         }
     }
 
@@ -900,7 +891,7 @@ fn process_chunk(
     let mut glyphs = Vec::new();
     for font_span in &font_spans {
         let span = &font_span.span;
-        let font = match font_mapping.get(&font_span.font_id) {
+        let font = match fonts_cache.get(&font_span.font_id) {
             Some(v) => v.clone(),
             None => continue,
         };
@@ -1726,7 +1717,7 @@ impl ResolvedFont {
     }
 }
 
-pub(crate) type FontsCache = HashMap<Font, Arc<ResolvedFont>>;
+pub(crate) type FontsCache = HashMap<ID, Arc<ResolvedFont>>;
 
 /// A read-only text index in bytes.
 ///
