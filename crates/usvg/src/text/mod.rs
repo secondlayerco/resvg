@@ -50,6 +50,15 @@ pub type FontSelectionFn<'a> =
 pub type FallbackSelectionFn<'a> =
     Box<dyn Fn(char, &[ID], &mut Arc<Database>) -> Option<ID> + Send + Sync + 'a>;
 
+/// A shorthand for [FontResolver]'s text subspans creation function.
+///
+/// This function receives a string, a list of text spans, and a font database.
+/// It should return a list of font text spans that can be used to render the
+/// text.
+///
+/// The function can search the existing database, but can also load additional
+/// fonts dynamically. See the documentation of [`FontSelectionFn`] for more
+/// details.
 pub type TextSubSpansCreationFn<'a> =
     Box<dyn Fn(&String, &Vec<TextSpan>, &mut Arc<Database>) -> Vec<FontTextSpan> + Send + Sync + 'a>;
 
@@ -69,6 +78,7 @@ pub struct FontResolver<'a> {
     /// character.
     pub select_fallback: FallbackSelectionFn<'a>,
 
+    /// Resolver function that will be used when creating text subspans.
     pub create_text_sub_spans: TextSubSpansCreationFn<'a>,
 }
 
@@ -194,6 +204,9 @@ impl FontResolver<'_> {
         })
     }
 
+    /// Default resolver function that will be used when creating text subspans.
+    ///
+    /// This function will return a single font ID for each text span and doesn't try to split spans
     pub fn default_text_sub_spans_creator() -> TextSubSpansCreationFn<'static> {
         Box::new(|_, spans, fontdb| {
             spans
@@ -244,9 +257,16 @@ pub(crate) fn convert(
 }
 
 #[derive(Clone, Debug)]
+/// Represents a text sub span with a specific font ID and the start and end indices inside the original text.
+///
+/// We expect start to be equal to span.start() and end to be smaller or equal to span.end().
 pub struct FontTextSpan {
+    /// The original span
     pub span: TextSpan,
+    /// The selected font ID
     pub font_id: ID,
+    /// The start index inside the original text
     pub start: usize,
+    /// The end index inside the original text
     pub end: usize,
 }
