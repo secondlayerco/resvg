@@ -882,14 +882,25 @@ fn process_chunk(
     // but some can use `ﬁ` (U+FB01) instead.
     // Meaning that during merging we have to overwrite not individual glyphs, but clusters.
 
+    let font_spans = (resolver.create_text_sub_spans)(&chunk.spans, fontdb);
+
+    // Populate font cache
+    let mut font_mapping = HashMap::<ID, Arc<ResolvedFont>>::new();
+    for font_span in &font_spans {
+        if let Some(font) = fontdb.load_font(font_span.font_id) {
+            font_mapping.insert(font_span.font_id, Arc::new(font));
+        }
+    }
+
     // Glyph splitting assigns distinct glyphs to the same index in the original text, we need to
     // store previously used indices to make sure we do not re-use the same index while overwriting
     // span glyphs.
     let mut positions = HashSet::new();
 
     let mut glyphs = Vec::new();
-    for span in &chunk.spans {
-        let font = match fonts_cache.get(&span.font) {
+    for font_span in &font_spans {
+        let span = &font_span.span;
+        let font = match font_mapping.get(&font_span.font_id) {
             Some(v) => v.clone(),
             None => continue,
         };

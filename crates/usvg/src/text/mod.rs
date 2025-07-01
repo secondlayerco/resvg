@@ -7,7 +7,7 @@ use fontdb::{Database, ID};
 use svgtypes::FontFamily;
 
 use self::layout::DatabaseExt;
-use crate::{Font, FontStretch, FontStyle, Text};
+use crate::{Font, FontStretch, FontStyle, Text, TextSpan};
 
 mod flatten;
 
@@ -50,6 +50,9 @@ pub type FontSelectionFn<'a> =
 pub type FallbackSelectionFn<'a> =
     Box<dyn Fn(char, &[ID], &mut Arc<Database>) -> Option<ID> + Send + Sync + 'a>;
 
+pub type TextSubSpansCreationFn<'a> =
+    Box<dyn Fn(&Vec<TextSpan>, &mut Arc<Database>) -> Vec<FontTextSpan> + Send + Sync + 'a>;
+
 /// A font resolver for `<text>` elements.
 ///
 /// This type can be useful if you want to have an alternative font handling to
@@ -65,6 +68,8 @@ pub struct FontResolver<'a> {
     /// Resolver function that will be used when selecting a fallback font for a
     /// character.
     pub select_fallback: FallbackSelectionFn<'a>,
+
+    pub create_text_sub_spans: TextSubSpansCreationFn<'a>,
 }
 
 impl Default for FontResolver<'_> {
@@ -72,6 +77,7 @@ impl Default for FontResolver<'_> {
         FontResolver {
             select_font: FontResolver::default_font_selector(),
             select_fallback: FontResolver::default_fallback_selector(),
+            create_text_sub_spans: FontResolver::default_text_sub_spans_creator(),
         }
     }
 }
@@ -187,6 +193,20 @@ impl FontResolver<'_> {
             None
         })
     }
+
+    pub fn default_text_sub_spans_creator() -> TextSubSpansCreationFn<'static> {
+        Box::new(|spans, fontdb| {
+            return spans
+                .iter()
+                .filter_map(|span| {
+                    FontResolver::default_font_selector()(&span.font, fontdb).map(|id| FontTextSpan {
+                        span: span.clone(),
+                        font_id: id,
+                    })
+                })
+                .collect();
+        })
+    }
 }
 
 impl std::fmt::Debug for FontResolver<'_> {
@@ -217,4 +237,10 @@ pub(crate) fn convert(
     text.abs_stroke_bounding_box = stroke_bbox.transform(text.abs_transform)?.to_rect();
 
     Some(())
+}
+
+#[derive(Clone, Debug)]
+pub struct FontTextSpan {
+    pub(crate) span: TextSpan,
+    pub(crate) font_id: ID,
 }
