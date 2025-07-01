@@ -196,15 +196,17 @@ impl FontResolver<'_> {
 
     pub fn default_text_sub_spans_creator() -> TextSubSpansCreationFn<'static> {
         Box::new(|spans, fontdb| {
-            return spans
+            spans
                 .iter()
                 .filter_map(|span| {
-                    FontResolver::default_font_selector()(&span.font, fontdb).map(|id| FontTextSpan {
-                        span: span.clone(),
-                        font_id: id,
+                    FontResolver::default_font_selector()(&span.font, fontdb).map(|id| {
+                        FontTextSpan {
+                            span: span.clone(),
+                            font_id: id,
+                        }
                     })
                 })
-                .collect();
+                .collect()
         })
     }
 }
@@ -241,6 +243,6 @@ pub(crate) fn convert(
 
 #[derive(Clone, Debug)]
 pub struct FontTextSpan {
-    pub(crate) span: TextSpan,
-    pub(crate) font_id: ID,
+    pub span: TextSpan,
+    pub font_id: ID,
 }
