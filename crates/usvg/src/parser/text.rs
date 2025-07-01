@@ -187,15 +187,7 @@ fn split_chunk_spans(
     fontdb: &mut Arc<Database>,
 ) {
     for chunk in chunks {
-        let sub_spans = (font_resolver.create_text_sub_spans)(&chunk.text, &chunk.spans, fontdb);
-        chunk.spans = sub_spans
-            .iter()
-            .map(|s| {
-                let mut new_span = s.span.clone();
-                new_span.font_id = s.font_id;
-                new_span
-            })
-            .collect();
+        chunk.spans = (font_resolver.create_text_sub_spans)(&chunk.text, &chunk.spans, fontdb);
     }
 }
 

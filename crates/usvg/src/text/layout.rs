@@ -889,9 +889,8 @@ fn process_chunk(
     let mut positions = HashSet::new();
 
     let mut glyphs = Vec::new();
-    for font_span in &font_spans {
-        let span = &font_span.span;
-        let font = match fonts_cache.get(&font_span.font_id) {
+    for span in &font_spans {
+        let font = match fonts_cache.get(&span.font_id) {
             Some(v) => v.clone(),
             None => continue,
         };

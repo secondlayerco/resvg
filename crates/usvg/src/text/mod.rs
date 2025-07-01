@@ -60,7 +60,7 @@ pub type FallbackSelectionFn<'a> =
 /// fonts dynamically. See the documentation of [`FontSelectionFn`] for more
 /// details.
 pub type TextSubSpansCreationFn<'a> =
-    Box<dyn Fn(&String, &Vec<TextSpan>, &mut Arc<Database>) -> Vec<FontTextSpan> + Send + Sync + 'a>;
+    Box<dyn Fn(&String, &Vec<TextSpan>, &mut Arc<Database>) -> Vec<TextSpan> + Send + Sync + 'a>;
 
 /// A font resolver for `<text>` elements.
 ///
@@ -213,11 +213,9 @@ impl FontResolver<'_> {
                 .iter()
                 .filter_map(|span| {
                     FontResolver::default_font_selector()(&span.font, fontdb).map(|id| {
-                        FontTextSpan {
-                            span: span.clone(),
+                        TextSpan {
                             font_id: id,
-                            start: span.start(),
-                            end: span.end(),
+                            ..span.clone()
                         }
                     })
                 })
@@ -254,19 +252,4 @@ pub(crate) fn convert(
     text.abs_stroke_bounding_box = stroke_bbox.transform(text.abs_transform)?.to_rect();
 
     Some(())
-}
-
-#[derive(Clone, Debug)]
-/// Represents a text sub span with a specific font ID and the start and end indices inside the original text.
-///
-/// We expect start to be equal to span.start() and end to be smaller or equal to span.end().
-pub struct FontTextSpan {
-    /// The original span
-    pub span: TextSpan,
-    /// The selected font ID
-    pub font_id: ID,
-    /// The start index inside the original text
-    pub start: usize,
-    /// The end index inside the original text
-    pub end: usize,
 }
