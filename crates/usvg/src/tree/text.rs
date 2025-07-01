@@ -394,6 +394,23 @@ impl TextSpan {
     pub fn length_adjust(&self) -> LengthAdjust {
         self.length_adjust
     }
+
+    /// A copy with a new start and end.
+    pub fn with_start_end(&self, start: usize, end: usize) -> Self {
+        TextSpan{
+            start: start,
+            end: end,
+            ..self.clone()
+        }
+    }
+
+    /// A copy with a new font ID.
+    pub fn with_font_id(&self, font_id: ID) -> Self {
+        TextSpan{
+            font_id: font_id,
+            ..self.clone()
+        }
+    }
 }
 
 /// A text chunk anchor property.
