@@ -882,7 +882,7 @@ fn process_chunk(
     // but some can use `ﬁ` (U+FB01) instead.
     // Meaning that during merging we have to overwrite not individual glyphs, but clusters.
 
-    let font_spans = (resolver.create_text_sub_spans)(&chunk.spans, fontdb);
+    let font_spans = (resolver.create_text_sub_spans)(&chunk.text, &chunk.spans, fontdb);
 
     // Populate font cache
     let mut font_mapping = HashMap::<ID, Arc<ResolvedFont>>::new();

@@ -354,7 +354,7 @@ pub(crate) fn load_sub_svg(data: &[u8], opt: &Options) -> Option<ImageKind> {
             select_fallback: Box::new(|c, used_fonts, db| {
                 (opt.font_resolver.select_fallback)(c, used_fonts, db)
             }),
-            create_text_sub_spans: Box::new(|spans, fontdb| (opt.font_resolver.create_text_sub_spans)(spans, fontdb)),
+            create_text_sub_spans: Box::new(|text, spans, fontdb| (opt.font_resolver.create_text_sub_spans)(text, spans, fontdb)),
         },
         ..Options::default()
     };

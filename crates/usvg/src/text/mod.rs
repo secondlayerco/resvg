@@ -51,7 +51,7 @@ pub type FallbackSelectionFn<'a> =
     Box<dyn Fn(char, &[ID], &mut Arc<Database>) -> Option<ID> + Send + Sync + 'a>;
 
 pub type TextSubSpansCreationFn<'a> =
-    Box<dyn Fn(&Vec<TextSpan>, &mut Arc<Database>) -> Vec<FontTextSpan> + Send + Sync + 'a>;
+    Box<dyn Fn(&String, &Vec<TextSpan>, &mut Arc<Database>) -> Vec<FontTextSpan> + Send + Sync + 'a>;
 
 /// A font resolver for `<text>` elements.
 ///
@@ -195,7 +195,7 @@ impl FontResolver<'_> {
     }
 
     pub fn default_text_sub_spans_creator() -> TextSubSpansCreationFn<'static> {
-        Box::new(|spans, fontdb| {
+        Box::new(|_, spans, fontdb| {
             spans
                 .iter()
                 .filter_map(|span| {
@@ -203,6 +203,8 @@ impl FontResolver<'_> {
                         FontTextSpan {
                             span: span.clone(),
                             font_id: id,
+                            start: span.start(),
+                            end: span.end(),
                         }
                     })
                 })
@@ -245,4 +247,6 @@ pub(crate) fn convert(
 pub struct FontTextSpan {
     pub span: TextSpan,
     pub font_id: ID,
+    pub start: usize,
+    pub end: usize,
 }
