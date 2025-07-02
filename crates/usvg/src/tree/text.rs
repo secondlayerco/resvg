@@ -329,6 +329,11 @@ impl TextSpan {
         &self.font
     }
 
+    /// A font id.
+    pub fn font_id(&self) -> &ID {
+        &self.font_id
+    }
+
     /// A font size.
     pub fn font_size(&self) -> NonZeroPositiveF32 {
         self.font_size
