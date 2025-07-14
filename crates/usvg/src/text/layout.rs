@@ -920,9 +920,9 @@ fn process_chunk(
             }
 
             let Some(idx) = glyphs
-                .iter()
-                .position(|g| g.byte_idx == new_glyph.byte_idx)
-                .filter(|pos| !positions.contains(pos))
+                .iter().enumerate()
+                .filter(|(pos, g)| g.byte_idx == new_glyph.byte_idx && !positions.contains(pos))
+                .next().map(|(pos, _)| pos)
             else {
                 continue;
             };
