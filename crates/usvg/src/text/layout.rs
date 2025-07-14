@@ -882,6 +882,11 @@ fn process_chunk(
     // but some can use `ﬁ` (U+FB01) instead.
     // Meaning that during merging we have to overwrite not individual glyphs, but clusters.
 
+    // Glyph splitting assigns distinct glyphs to the same index in the original text, we need to
+    // store previously used indices to make sure we do not re-use the same index while overwriting
+    // span glyphs.
+    let mut positions = HashSet::new();
+
     let mut glyphs = Vec::new();
     for span in &chunk.spans {
         let font = match fonts_cache.get(&span.font) {
@@ -904,8 +909,9 @@ fn process_chunk(
             continue;
         }
 
+        positions.clear();
+
         // Overwrite span's glyphs.
-        let mut positions = HashSet::new();
         let mut iter = tmp_glyphs.into_iter();
         while let Some(new_glyph) = iter.next() {
             if !span_contains(span, new_glyph.byte_idx) {
