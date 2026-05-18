@@ -105,6 +105,45 @@ impl crate::Tree {
         }
     }
 
+    /// Similar to the `from_data` method, except that it ignores all `image` elements linking to
+    /// external files, as required by the SVG specification when SVG files are loaded
+    /// for `<image href="..." />` tags.
+    pub fn from_data_nested(data: &[u8], opt: &Options) -> Result<Self, Error> {
+        let nested_opt = Options {
+            resources_dir: None,
+            dpi: opt.dpi,
+            font_size: opt.font_size,
+            languages: opt.languages.clone(),
+            shape_rendering: opt.shape_rendering,
+            text_rendering: opt.text_rendering,
+            image_rendering: opt.image_rendering,
+            default_size: opt.default_size,
+            image_href_resolver: ImageHrefResolver {
+                resolve_data: Box::new(|a, b, c| (opt.image_href_resolver.resolve_data)(a, b, c)),
+                // External images should be ignored.
+                resolve_string: Box::new(|_, _| None),
+            },
+            // In the referenced SVG, we start with the unmodified user-provided
+            // fontdb, not the one from the cache.
+            #[cfg(feature = "text")]
+            fontdb: opt.fontdb.clone(),
+            // Can't clone the resolver, so we create a new one that forwards to it.
+            #[cfg(feature = "text")]
+            font_resolver: crate::FontResolver {
+                select_font: Box::new(|font, db| (opt.font_resolver.select_font)(font, db)),
+                select_fallback: Box::new(|c, used_fonts, db| {
+                    (opt.font_resolver.select_fallback)(c, used_fonts, db)
+                }),
+                create_text_sub_spans: Box::new(|s, spans, db| {
+                    (opt.font_resolver.create_text_sub_spans)(s, spans, db)
+                }),
+            },
+            ..Options::default()
+        };
+
+        Self::from_data(data, &nested_opt)
+    }
+
     /// Parses `Tree` from an SVG string.
     pub fn from_str(text: &str, opt: &Options) -> Result<Self, Error> {
         let xml_opt = roxmltree::ParsingOptions {
@@ -140,14 +179,14 @@ pub fn decompress_svgz(data: &[u8]) -> Result<Vec<u8>, Error> {
 #[inline]
 pub(crate) fn f32_bound(min: f32, val: f32, max: f32) -> f32 {
     debug_assert!(min.is_finite());
-    debug_assert!(val.is_finite());
     debug_assert!(max.is_finite());
 
     if val > max {
         max
-    } else if val < min {
-        min
-    } else {
+    } else if val >= min {
         val
+    } else {
+        // Catches `val < min` as well as a NaN `val`.
+        min
     }
 }

@@ -26,6 +26,7 @@ fn push_outline_paths(
     builder: &mut tiny_skia_path::PathBuilder,
     new_children: &mut Vec<Node>,
     rendering_mode: ShapeRendering,
+    abs_transform: Transform,
 ) {
     let builder = mem::replace(builder, tiny_skia_path::PathBuilder::new());
 
@@ -38,16 +39,17 @@ fn push_outline_paths(
             span.paint_order,
             rendering_mode,
             Arc::new(p),
-            Transform::default(),
+            abs_transform,
         )
     }) {
         new_children.push(Node::Path(Box::new(path)));
     }
 }
 
-pub(crate) fn flatten(text: &mut Text, fontdb: &fontdb::Database) -> Option<(Group, NonZeroRect)> {
+pub(crate) fn flatten(text: &mut Text, cache: &mut Cache) -> Option<(Group, NonZeroRect)> {
     let mut new_children = vec![];
 
+    let abs_transform = text.abs_transform;
     let rendering_mode = resolve_rendering_mode(text);
 
     for span in &text.layouted {
@@ -71,36 +73,52 @@ pub(crate) fn flatten(text: &mut Text, fontdb: &fontdb::Database) -> Option<(Gro
         // with just outlines (which is the most common case).
         let mut span_builder = tiny_skia_path::PathBuilder::new();
 
+        // For variable fonts, we need to extract the outline with variations applied.
+        // We can't use the cache here since the outline depends on variation values.
+        let has_explicit_variations = !span.variations.is_empty();
+
         for glyph in &span.positioned_glyphs {
             // A (best-effort conversion of a) COLR glyph.
-            if let Some(tree) = fontdb.colr(glyph.font, glyph.id) {
+            if let Some(tree) = cache.fontdb_colr(glyph.font, glyph.id) {
                 let mut group = Group {
                     transform: glyph.colr_transform(),
                     ..Group::empty()
                 };
-                // TODO: Probably need to update abs_transform of children?
+                // TODO: Probably need to update abs_transform of children? Same
+                // for SVG and bitmap glyphs.
                 group.children.push(Node::Group(Box::new(tree.root)));
                 group.calculate_bounding_boxes();
 
                 new_children.push(Node::Group(Box::new(group)));
             }
             // An SVG glyph. Will return the usvg node containing the glyph descriptions.
-            else if let Some(node) = fontdb.svg(glyph.font, glyph.id) {
-                push_outline_paths(span, &mut span_builder, &mut new_children, rendering_mode);
+            else if let Some(node) = cache.fontdb_svg(glyph.font, glyph.id) {
+                push_outline_paths(
+                    span,
+                    &mut span_builder,
+                    &mut new_children,
+                    rendering_mode,
+                    abs_transform,
+                );
 
                 let mut group = Group {
                     transform: glyph.svg_transform(),
                     ..Group::empty()
                 };
-                // TODO: Probably need to update abs_transform of children?
                 group.children.push(node);
                 group.calculate_bounding_boxes();
 
                 new_children.push(Node::Group(Box::new(group)));
             }
             // A bitmap glyph.
-            else if let Some(img) = fontdb.raster(glyph.font, glyph.id) {
-                push_outline_paths(span, &mut span_builder, &mut new_children, rendering_mode);
+            else if let Some(img) = cache.fontdb_raster(glyph.font, glyph.id) {
+                push_outline_paths(
+                    span,
+                    &mut span_builder,
+                    &mut new_children,
+                    rendering_mode,
+                    abs_transform,
+                );
 
                 let transform = if img.is_sbix {
                     glyph.sbix_transform(
@@ -128,15 +146,38 @@ pub(crate) fn flatten(text: &mut Text, fontdb: &fontdb::Database) -> Option<(Gro
                 group.calculate_bounding_boxes();
 
                 new_children.push(Node::Group(Box::new(group)));
-            } else if let Some(outline) = fontdb
-                .outline(glyph.font, glyph.id)
-                .and_then(|p| p.transform(glyph.outline_transform()))
-            {
-                span_builder.push_path(&outline);
+            } else {
+                // Only bypass cache if: explicit variations OR (auto opsz AND font has opsz axis)
+                let needs_variations = has_explicit_variations
+                    || (span.font_optical_sizing == crate::FontOpticalSizing::Auto
+                        && cache.has_opsz_axis(glyph.font));
+
+                let outline = if needs_variations {
+                    cache.fontdb.outline_with_variations(
+                        glyph.font,
+                        glyph.id,
+                        &span.variations,
+                        glyph.font_size(),
+                        span.font_optical_sizing,
+                    )
+                } else {
+                    cache.fontdb_outline(glyph.font, glyph.id)
+                };
+
+                if let Some(outline) = outline.and_then(|p| p.transform(glyph.outline_transform()))
+                {
+                    span_builder.push_path(&outline);
+                }
             }
         }
 
-        push_outline_paths(span, &mut span_builder, &mut new_children, rendering_mode);
+        push_outline_paths(
+            span,
+            &mut span_builder,
+            &mut new_children,
+            rendering_mode,
+            abs_transform,
+        );
 
         if let Some(path) = span.line_through.as_ref() {
             let mut path = path.clone();
@@ -187,11 +228,21 @@ impl ttf_parser::OutlineBuilder for PathBuilder {
 
 pub(crate) trait DatabaseExt {
     fn outline(&self, id: ID, glyph_id: GlyphId) -> Option<tiny_skia_path::Path>;
+    fn outline_with_variations(
+        &self,
+        id: ID,
+        glyph_id: GlyphId,
+        variations: &[crate::FontVariation],
+        font_size: f32,
+        font_optical_sizing: crate::FontOpticalSizing,
+    ) -> Option<tiny_skia_path::Path>;
+    fn has_opsz_axis(&self, id: ID) -> bool;
     fn raster(&self, id: ID, glyph_id: GlyphId) -> Option<BitmapImage>;
     fn svg(&self, id: ID, glyph_id: GlyphId) -> Option<Node>;
     fn colr(&self, id: ID, glyph_id: GlyphId) -> Option<Tree>;
 }
 
+#[derive(Clone)]
 pub(crate) struct BitmapImage {
     image: Image,
     x: i16,
@@ -205,7 +256,14 @@ impl DatabaseExt for Database {
     #[inline(never)]
     fn outline(&self, id: ID, glyph_id: GlyphId) -> Option<tiny_skia_path::Path> {
         self.with_face_data(id, |data, face_index| -> Option<tiny_skia_path::Path> {
-            let font = ttf_parser::Face::parse(data, face_index).ok()?;
+            let mut font = ttf_parser::Face::parse(data, face_index).ok()?;
+
+            // For variable fonts, we need to set default variation values to get proper outlines
+            if font.is_variable() {
+                for axis in font.variation_axes() {
+                    font.set_variation(axis.tag, axis.def_value);
+                }
+            }
 
             let mut builder = PathBuilder {
                 builder: tiny_skia_path::PathBuilder::new(),
@@ -214,6 +272,62 @@ impl DatabaseExt for Database {
             font.outline_glyph(glyph_id, &mut builder)?;
             builder.builder.finish()
         })?
+    }
+
+    #[inline(never)]
+    fn outline_with_variations(
+        &self,
+        id: ID,
+        glyph_id: GlyphId,
+        variations: &[crate::FontVariation],
+        font_size: f32,
+        font_optical_sizing: crate::FontOpticalSizing,
+    ) -> Option<tiny_skia_path::Path> {
+        self.with_face_data(id, |data, face_index| -> Option<tiny_skia_path::Path> {
+            let mut font = ttf_parser::Face::parse(data, face_index).ok()?;
+
+            for v in variations {
+                font.set_variation(ttf_parser::Tag::from_bytes(&v.tag), v.value);
+            }
+
+            // Auto-set opsz if font-optical-sizing is auto and not explicitly set
+            if font_optical_sizing == crate::FontOpticalSizing::Auto {
+                let has_explicit_opsz = variations.iter().any(|v| v.tag == *b"opsz");
+                if !has_explicit_opsz {
+                    // Check if font has opsz axis
+                    if let Some(axes) = font.tables().fvar {
+                        let has_opsz_axis = axes
+                            .axes
+                            .into_iter()
+                            .any(|axis| axis.tag == ttf_parser::Tag::from_bytes(b"opsz"));
+                        if has_opsz_axis {
+                            font.set_variation(ttf_parser::Tag::from_bytes(b"opsz"), font_size);
+                        }
+                    }
+                }
+            }
+
+            let mut builder = PathBuilder {
+                builder: tiny_skia_path::PathBuilder::new(),
+            };
+
+            font.outline_glyph(glyph_id, &mut builder)?;
+            builder.builder.finish()
+        })?
+    }
+
+    fn has_opsz_axis(&self, id: ID) -> bool {
+        self.with_face_data(id, |data, face_index| -> Option<bool> {
+            let font = ttf_parser::Face::parse(data, face_index).ok()?;
+            let has_opsz = font.tables().fvar.map_or(false, |axes| {
+                axes.axes
+                    .into_iter()
+                    .any(|axis| axis.tag == ttf_parser::Tag::from_bytes(b"opsz"))
+            });
+            Some(has_opsz)
+        })
+        .flatten()
+        .unwrap_or(false)
     }
 
     fn raster(&self, id: ID, glyph_id: GlyphId) -> Option<BitmapImage> {

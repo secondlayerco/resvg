@@ -1119,6 +1119,8 @@ use crate::render;
 #[test] fn structure_image_external_webp() { assert_eq!(render("tests/structure/image/external-webp"), 0); }
 #[test] fn structure_image_float_size() { assert_eq!(render("tests/structure/image/float-size"), 0); }
 #[test] fn structure_image_image_with_float_size_scaling() { assert_eq!(render("tests/structure/image/image-with-float-size-scaling"), 0); }
+#[test] fn structure_image_nested_embedded_png() { assert_eq!(render("tests/structure/image/nested-embedded-png"), 0); }
+#[test] fn structure_image_nested_external_png() { assert_eq!(render("tests/structure/image/nested-external-png"), 0); }
 #[test] fn structure_image_no_height_non_square() { assert_eq!(render("tests/structure/image/no-height-non-square"), 0); }
 #[test] fn structure_image_no_height_on_svg() { assert_eq!(render("tests/structure/image/no-height-on-svg"), 0); }
 #[test] fn structure_image_no_height() { assert_eq!(render("tests/structure/image/no-height"), 0); }
@@ -1153,6 +1155,8 @@ use crate::render;
 #[test] fn structure_style_attribute_selector() { assert_eq!(render("tests/structure/style/attribute-selector"), 0); }
 #[test] fn structure_style_class_selector() { assert_eq!(render("tests/structure/style/class-selector"), 0); }
 #[test] fn structure_style_combined_selectors() { assert_eq!(render("tests/structure/style/combined-selectors"), 0); }
+#[test] fn structure_style_current_color_fill_before_color() { assert_eq!(render("tests/structure/style/current-color-fill-before-color"), 0); }
+#[test] fn structure_style_current_color_stroke_before_color() { assert_eq!(render("tests/structure/style/current-color-stroke-before-color"), 0); }
 #[test] fn structure_style_external_CSS() { assert_eq!(render("tests/structure/style/external-CSS"), 0); }
 #[test] fn structure_style_iD_selector() { assert_eq!(render("tests/structure/style/iD-selector"), 0); }
 #[test] fn structure_style_important() { assert_eq!(render("tests/structure/style/important"), 0); }
@@ -1417,6 +1421,7 @@ use crate::render;
 #[test] fn text_font_family_fantasy() { assert_eq!(render("tests/text/font-family/fantasy"), 0); }
 #[test] fn text_font_family_font_list() { assert_eq!(render("tests/text/font-family/font-list"), 0); }
 #[test] fn text_font_family_monospace() { assert_eq!(render("tests/text/font-family/monospace"), 0); }
+#[test] fn text_font_family_noto_sans_malayalam_1() { assert_eq!(render("tests/text/font-family/noto-sans-malayalam-1"), 0); }
 #[test] fn text_font_family_noto_sans() { assert_eq!(render("tests/text/font-family/noto-sans"), 0); }
 #[test] fn text_font_family_sans_serif() { assert_eq!(render("tests/text/font-family/sans-serif"), 0); }
 #[test] fn text_font_family_serif() { assert_eq!(render("tests/text/font-family/serif"), 0); }
@@ -1453,6 +1458,20 @@ use crate::render;
 #[test] fn text_font_style_oblique() { assert_eq!(render("tests/text/font-style/oblique"), 0); }
 #[test] fn text_font_variant_inherit() { assert_eq!(render("tests/text/font-variant/inherit"), 0); }
 #[test] fn text_font_variant_small_caps() { assert_eq!(render("tests/text/font-variant/small-caps"), 0); }
+#[test] fn text_font_variation_settings_all_axes_combined() { assert_eq!(render("tests/text/font-variation-settings/all-axes-combined"), 0); }
+#[test] fn text_font_variation_settings_auto_font_stretch_condensed() { assert_eq!(render("tests/text/font-variation-settings/auto-font-stretch-condensed"), 0); }
+#[test] fn text_font_variation_settings_auto_font_style_oblique() { assert_eq!(render("tests/text/font-variation-settings/auto-font-style-oblique"), 0); }
+#[test] fn text_font_variation_settings_auto_font_weight_700() { assert_eq!(render("tests/text/font-variation-settings/auto-font-weight-700"), 0); }
+#[test] fn text_font_variation_settings_explicit_overrides_auto() { assert_eq!(render("tests/text/font-variation-settings/explicit-overrides-auto"), 0); }
+#[test] fn text_font_variation_settings_grad_negative() { assert_eq!(render("tests/text/font-variation-settings/grad-negative"), 0); }
+#[test] fn text_font_variation_settings_multiple_axes() { assert_eq!(render("tests/text/font-variation-settings/multiple-axes"), 0); }
+#[test] fn text_font_variation_settings_opsz_144() { assert_eq!(render("tests/text/font-variation-settings/opsz-144"), 0); }
+#[test] fn text_font_variation_settings_slnt_negative() { assert_eq!(render("tests/text/font-variation-settings/slnt-negative"), 0); }
+#[test] fn text_font_variation_settings_wdth_151() { assert_eq!(render("tests/text/font-variation-settings/wdth-151"), 0); }
+#[test] fn text_font_variation_settings_wdth_25() { assert_eq!(render("tests/text/font-variation-settings/wdth-25"), 0); }
+#[test] fn text_font_variation_settings_wght_100() { assert_eq!(render("tests/text/font-variation-settings/wght-100"), 0); }
+#[test] fn text_font_variation_settings_wght_700() { assert_eq!(render("tests/text/font-variation-settings/wght-700"), 0); }
+#[test] fn text_font_variation_settings_xtra_extreme() { assert_eq!(render("tests/text/font-variation-settings/xtra-extreme"), 0); }
 #[test] fn text_font_weight_650() { assert_eq!(render("tests/text/font-weight/650"), 0); }
 #[test] fn text_font_weight_700() { assert_eq!(render("tests/text/font-weight/700"), 0); }
 #[test] fn text_font_weight_bold() { assert_eq!(render("tests/text/font-weight/bold"), 0); }
@@ -1500,9 +1519,9 @@ use crate::render;
 #[test] fn text_text_escaped_text_4() { assert_eq!(render("tests/text/text/escaped-text-4"), 0); }
 #[test] fn text_text_fill_rule_eq_evenodd() { assert_eq!(render("tests/text/text/fill-rule=evenodd"), 0); }
 #[test] fn text_text_filter_bbox() { assert_eq!(render("tests/text/text/filter-bbox"), 0); }
+#[test] fn text_text_glyph_splitting() { assert_eq!(render("tests/text/text/glyph-splitting"), 0); }
 #[test] fn text_text_ligatures_handling_in_mixed_fonts_1() { assert_eq!(render("tests/text/text/ligatures-handling-in-mixed-fonts-1"), 0); }
 #[test] fn text_text_ligatures_handling_in_mixed_fonts_2() { assert_eq!(render("tests/text/text/ligatures-handling-in-mixed-fonts-2"), 0); }
-#[test] fn text_text_glyph_splitting() { assert_eq!(render("tests/text/text/glyph-splitting"), 0); }
 #[test] fn text_text_mm_coordinates() { assert_eq!(render("tests/text/text/mm-coordinates"), 0); }
 #[test] fn text_text_nested() { assert_eq!(render("tests/text/text/nested"), 0); }
 #[test] fn text_text_no_coordinates() { assert_eq!(render("tests/text/text/no-coordinates"), 0); }
